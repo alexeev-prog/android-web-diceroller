@@ -1,0 +1,43 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install Gradle 8.2
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip -d /opt
+          echo "/opt/gradle-8.2/bin" >> $GITHUB_PATH
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.2 --distribution-type bin
+      - name: Prepare build environment
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
+          mkdir -p ~/.android
+          chmod 755 ~/.android
+          chmod +x gradlew
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
